@@ -6,18 +6,12 @@ Everything here is automated by [`.github/workflows/release.yml`](.github/workfl
 
 ### 1. Create the GitHub repository
 
-```bash
-gh repo create observix --public --source=. --remote=origin --push
-```
-
-Or create it in the UI and:
+Already done: <https://github.com/Pranav-PA/observix>.
 
 ```bash
-git remote add origin https://github.com/<owner>/observix.git
+git remote add origin https://github.com/Pranav-PA/observix.git
 git push -u origin main
 ```
-
-Then update the `[project.urls]` table in `pyproject.toml` — it currently points at `github.com/observix/observix`, a placeholder.
 
 ### 2. Claim the PyPI name
 

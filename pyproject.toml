@@ -58,11 +58,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/observix/observix"
-Documentation = "https://github.com/observix/observix/tree/main/docs"
-Source = "https://github.com/observix/observix"
-Issues = "https://github.com/observix/observix/issues"
-Changelog = "https://github.com/observix/observix/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Pranav-PA/observix"
+Documentation = "https://github.com/Pranav-PA/observix/tree/main/docs"
+Source = "https://github.com/Pranav-PA/observix"
+Issues = "https://github.com/Pranav-PA/observix/issues"
+Changelog = "https://github.com/Pranav-PA/observix/blob/main/CHANGELOG.md"
 
 # --- Plugin registries -------------------------------------------------------
 # Third-party packages extend observix by declaring these same entry points.

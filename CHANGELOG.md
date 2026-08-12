@@ -127,5 +127,5 @@ many backends at the same time.
 - The PII detectors catch common accidental leaks; they are not a compliance
   control.
 
-[Unreleased]: https://github.com/observix/observix/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/observix/observix/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Pranav-PA/observix/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Pranav-PA/observix/releases/tag/v0.1.0

@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-git clone https://github.com/observix/observix
+git clone https://github.com/Pranav-PA/observix
 cd observix
 uv venv && uv pip install -e ".[dev]"
 ```

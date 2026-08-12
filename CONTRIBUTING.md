@@ -40,6 +40,14 @@ src/observix/
   cost/            token → USD
 ```
 
+## What needs doing
+
+[ROADMAP.md](ROADMAP.md) lists what's planned and why, with a section on how to
+decide what's next. The short version: **verification beats features.** Two of
+five dialects have been checked against a real backend, and both checks found a
+real bug — so a live-verification suite for Langfuse, Datadog or Arize is worth
+more right now than a new provider.
+
 ## Adding a backend
 
 **You should not need to change core code.** See [docs/extending.md](docs/extending.md).

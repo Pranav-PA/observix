@@ -244,6 +244,7 @@ Unconfigured observix costs well under a microsecond. When enabled, roughly two-
 
 ## Documentation
 
+- [Roadmap](ROADMAP.md) — what's next, and what's deliberately out of scope
 - [Design and competitive analysis](docs/DESIGN.md)
 - [Quickstart](docs/quickstart.md)
 - [Configuration reference](docs/configuration.md)

@@ -104,8 +104,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
+          # Caching is disabled here on purpose. This job installs Phoenix,
+          # MLflow, the openai SDK and two instrumentors, and the setup-uv
+          # post-step's cache prune hung for five minutes on that tree and then
+          # failed the job --- after the live tests themselves had passed.
+          # The install takes ~6s uncached, so the cache bought nothing anyway.
+          enable-cache: false
       - run: uv venv --python 3.12
 
       - name: Install observix, Phoenix and MLflow

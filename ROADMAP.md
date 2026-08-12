@@ -218,15 +218,59 @@ provider without live verification is a guess with a version number.
 
 ## Immediate next steps
 
+**Progress so far on 0.2:** MLflow live verification ✅ (found the
+`mlflow.llm.cost` bug), upstream semconv conformance ✅, real foreign-span
+adoption ✅ (found three gaps). Langfuse is the one technical item left.
+
 Concrete, in order:
 
-1. Set the GitHub repo description and topics.
+1. **Stand up Langfuse and write `tests/live/test_langfuse_live.py`.** The last
+   unverified dialect that matters, and the one whose rendering bug justified
+   the project. Needs Docker (self-hosted, CI-friendly) or Cloud keys in GitHub
+   secrets. Assert on Langfuse's *typed* fields — observation type, input,
+   output, `usage_details`, `cost_details` — and **use a model Langfuse cannot
+   price**, so any cost that appears must be the one we sent
+   ([D32](docs/decisions.md) explains why that detail matters).
+2. Set the GitHub repo description and topics.
    > Provider-agnostic observability for Python and AI apps. Instrument once with @observe; export natively to Phoenix, Langfuse, MLflow, Datadog and any OTLP backend simultaneously.
 
    Topics: `observability` `opentelemetry` `llm` `genai` `tracing` `otlp`
    `langfuse` `phoenix` `mlflow` `python` `telemetry` `llmops`
-2. Create the `pypi` GitHub environment with a required reviewer, so tag pushes
+3. Create the `pypi` GitHub environment with a required reviewer, so tag pushes
    need an approval before publishing.
-3. Stand up Langfuse (Docker or Cloud keys) and write `tests/live/test_langfuse_live.py`.
-4. Verify `adopt_foreign` against spans from a real instrumentation library.
-5. Cut 0.2.0 once 3 and 4 land.
+4. Cut 0.2.0 once 1 lands.
+
+### Known CI wrinkles
+
+- Adding `openai` and both instrumentors to `dev` means every matrix job
+  installs them, including the ones that never touch adoption. Worth moving
+  those tests behind their own marker and a dedicated job if install time
+  becomes annoying.
+- Caching is deliberately off for the `live` job — the setup-uv cache prune hung
+  for five minutes on that dependency tree and failed the job *after* the tests
+  had passed. The install is ~6s uncached.
+- `actions/checkout@v4` and `astral-sh/setup-uv@v5` warn about Node 20
+  deprecation. Harmless today; bump when convenient.
+
+## Picking this up on a new machine
+
+```bash
+git clone https://github.com/Pranav-PA/observix
+cd observix
+uv venv --python 3.12 && uv pip install -e ".[dev]"
+
+uv run pytest                       # 349 offline tests
+uv run ruff check . && uv run mypy  # the rest of the gate
+```
+
+For the live suites:
+
+```bash
+uv pip install arize-phoenix mlflow
+uv run phoenix serve                                  # terminal 2
+uv run mlflow server --host 127.0.0.1 --port 5000     # terminal 3
+uv run pytest tests/live -m live
+```
+
+Nothing is stored outside git — `.venv/`, `dist/`, `uv.lock` and the backend
+databases are all regenerable, and the published artifacts live on PyPI.

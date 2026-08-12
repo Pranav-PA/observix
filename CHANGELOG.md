@@ -10,6 +10,37 @@ canonical `observix.*` attribute namespace is stable from `1.0` onward.
 
 ## [Unreleased]
 
+### Added
+
+- **Streaming support.** `observe_stream` / `observe_astream` wrap a chunk
+  iterator, recording time-to-first-token, the accumulated response and the
+  chunk count. Finalises correctly when a stream is abandoned part-way.
+  `StreamRecorder` is exposed for manual control.
+- **Live backend tests** (`tests/live/`, marked `live`, deselected by default)
+  that send real spans to a running Phoenix and assert it recognises them.
+- **Per-destination resource overrides** via `Provider.resource_overrides()`,
+  for backends that route on a resource attribute.
+- **Benchmarks** (`benchmarks/`) measuring decorator overhead, the content-skip
+  optimisation, fan-out scaling and per-dialect translation cost, against a raw
+  OpenTelemetry baseline. Results and caveats in `benchmarks/README.md`.
+
+### Fixed
+
+- **Phoenix project routing.** Projects are selected by the
+  `openinference.project.name` *resource* attribute; the previously-sent
+  `x-phoenix-project-name` header is ignored by Phoenix, so every span landed in
+  `default`. Found by the new live tests.
+- Resource merging used `Resource.create()`, whose injected defaults
+  (`service.name=unknown_service`) overwrote real values.
+
+### Changed
+
+- `@observe` reuses the span facade from span start to span end instead of
+  allocating a second one.
+- Argument capture zips pre-resolved parameter names rather than calling
+  `inspect.Signature.bind_partial` per call (~16 % faster capture). Functions
+  with `*args` still use full binding.
+
 ## [0.1.0] — 2026-08-12
 
 First release. The core thesis is in place: instrument once, export natively to

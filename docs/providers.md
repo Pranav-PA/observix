@@ -28,9 +28,18 @@ docker run -p 6006:6006 arizephoenix/phoenix
 | Option | Env | Notes |
 |---|---|---|
 | `api_key` | `PHOENIX_API_KEY` | Sent as `authorization: Bearer …` |
-| `project_name` | `PHOENIX_PROJECT_NAME` | Sent as `x-phoenix-project-name` |
+| `project_name` | `PHOENIX_PROJECT_NAME` | Sets the `openinference.project.name` resource attribute |
 | — | `PHOENIX_COLLECTOR_ENDPOINT` | Overrides the endpoint |
 | — | `PHOENIX_CLIENT_HEADERS` | Extra headers, `k=v,k=v` |
+
+> **Project routing uses a resource attribute, not a header.** Verified against
+> Phoenix 20.x: an `x-phoenix-project-name` header is silently ignored and the
+> spans land in `default`. observix sets `openinference.project.name` per
+> destination, so two Phoenix destinations can target different projects from
+> the same process.
+
+This provider is covered by [live tests](../tests/live/) that send real spans to
+a running Phoenix and assert it recognises them.
 
 ---
 

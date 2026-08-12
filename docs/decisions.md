@@ -321,6 +321,52 @@ A good illustration of why D20 exists: this was invisible to any test asserting 
 
 ---
 
+### D28. Phoenix projects route on a resource attribute, not a header
+
+**Decision.** `PhoenixProvider` sets the `openinference.project.name` **resource** attribute rather than an `x-phoenix-project-name` header, and providers gained a `resource_overrides()` hook to make that possible per-destination.
+
+**Why.** Found by running the first live test against a real Phoenix 20.x. The header is silently ignored — spans arrived correctly but every one landed in `default`. Nothing in the offline suite could have caught this, because it asserted that we *emit the header*, which we did.
+
+**The architectural wrinkle it exposed.** OTel's resource is per-`TracerProvider` and therefore shared by every destination, but project routing is inherently per-destination. Setting it globally would let one backend's routing leak into another's. The fix reuses machinery already in place: `DialectSpanExporter` rebuilds each span anyway, so it now merges that destination's resource overrides at the same time. Per-destination resource is a general capability, not a Phoenix special case.
+
+**Sub-decision.** The merge uses `Resource(dict(...))`, not `Resource.create(...)` — `create()` injects defaults (`service.name=unknown_service`, `telemetry.sdk.*`) that then *win* the merge and clobber the real values. Caught by a test asserting the shared resource survived.
+
+**The general lesson.** This is the entire justification for the live suite. A mapping the backend ignores is invisible to in-memory tests, which can only verify that we produce what we intended to produce.
+
+### D29. Live backend tests exist, and are deselected by default
+
+**Decision.** `tests/live/` runs against a real running backend, marked `live` and excluded via `addopts = "-m 'not live'"`. They skip themselves if nothing is reachable.
+
+**Why.** The product's central claim — "renders natively in each backend" — cannot be verified against an in-memory exporter. But requiring a running Phoenix to run `pytest` would make the project hostile to contributors. Deselect-by-default gives both.
+
+They assert against Phoenix's *typed columns* (`span_kind`, `attributes.llm.token_count.prompt`), not raw attributes, because those columns exist only for attributes Phoenix actually recognises. An unrecognised mapping stays buried in raw attributes and the assertion fails.
+
+### D30. Streaming is recorded as it is consumed, with mandatory finalisation
+
+**Decision.** `observe_stream` / `observe_astream` wrap a chunk iterator, record TTFT on the first non-empty chunk, accumulate text, and finalise in a `finally` block.
+
+**Why.** Streaming breaks `@observe`'s core assumption that a function's return value is its output — when the decorated function returns, nothing has been generated yet, and time-to-first-token, often the latency users actually feel, is invisible.
+
+**The `finally` is load-bearing.** An abandoned generator raises `GeneratorExit` at the suspension point. Without finalising there, a stream the caller stops consuming leaves a span with no output at all. `GeneratorExit` is explicitly excluded from exception *recording* — abandoning a stream is not an error — but still triggers finalisation.
+
+**TTFT ignores empty leading chunks.** Vendors send role and metadata frames before any text; timing to those would measure the wrong thing.
+
+**Rejected.** *Buffering the whole stream and recording at the end.* Simpler, but loses TTFT entirely — the one metric streaming exists to expose.
+
+### D31. Measure before optimising, and report what the measurement says
+
+**Decision.** Added `benchmarks/`, then made exactly two optimisations that the numbers justified: reuse the span facade in `_finish`, and replace `Signature.bind_partial` with pre-resolved parameter names.
+
+**Why.** "Minimal overhead" was a stated priority with no evidence behind it. The measurements both confirmed and corrected the design:
+
+- **D9 holds, but its phrasing was too generous.** Disabled `@observe` costs ~0.4 µs, not "one attribute load" — it is a wrapper invocation *plus* the check. Sub-microsecond, not free. [benchmarks/README.md](../benchmarks/README.md) states it accurately.
+- **D10 is confirmed with a number:** ~32 % of a full LLM span's cost is avoided when no destination retains content.
+- **Most of an enabled span's cost is OpenTelemetry's, not ours** — ~56 µs of ~85 µs. Without a raw-OTel baseline in the benchmark, that would have been misattributed to observix.
+
+The `bind_partial` optimisation returned only ~16 %, which is itself a finding: it was not the dominant term. JSON serialisation is. Documented rather than pursued further, so the next person starts from evidence instead of a guess.
+
+---
+
 ## 10. Environment decisions (this build)
 
 ### D25. uv with a managed CPython, rather than system Python

@@ -7,12 +7,15 @@ Defaults to a local Phoenix at ``http://localhost:6006``.
 from __future__ import annotations
 
 import os
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from ..config import ExporterConfig, parse_headers
 from .base import OTLPProviderBase
 
 DEFAULT_ENDPOINT = "http://localhost:6006"
+
+#: Phoenix selects the destination project from this resource attribute.
+PROJECT_RESOURCE_ATTRIBUTE = "openinference.project.name"
 
 
 class PhoenixProvider(OTLPProviderBase):
@@ -41,9 +44,16 @@ class PhoenixProvider(OTLPProviderBase):
         if api_key:
             headers.setdefault("authorization", f"Bearer {api_key}")
 
-        project = config.options.get("project_name") or os.environ.get("PHOENIX_PROJECT_NAME")
-        if project:
-            headers.setdefault("x-phoenix-project-name", str(project))
-
         headers.update(config.headers)
         return headers
+
+    def resource_overrides(self, config: ExporterConfig) -> dict[str, Any]:
+        """Route to a Phoenix project.
+
+        Verified against Phoenix 20.x: the project is selected by the
+        ``openinference.project.name`` *resource* attribute. An
+        ``x-phoenix-project-name`` header is ignored, and spans sent with one
+        land in ``default``.
+        """
+        project = config.options.get("project_name") or os.environ.get("PHOENIX_PROJECT_NAME")
+        return {PROJECT_RESOURCE_ATTRIBUTE: str(project)} if project else {}

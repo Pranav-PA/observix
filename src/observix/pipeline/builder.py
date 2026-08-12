@@ -108,6 +108,7 @@ def build_pipeline(
         redaction=redaction,
         destination=exporter_config.key,
         adopt_foreign=bool(exporter_config.options.get("adopt_foreign", adopt_foreign)),
+        resource_overrides=provider.resource_overrides(exporter_config),
     )
 
     batch_kwargs = {**(default_batch or {}), **exporter_config.batch}

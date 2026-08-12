@@ -54,6 +54,7 @@ from .model import (
 )
 from .providers import Provider, register_provider, resolve_provider
 from .redaction import RedactionPolicy
+from .streaming import StreamRecorder, observe_astream, observe_stream
 
 __all__ = [
     "ConfigurationError",
@@ -78,6 +79,8 @@ __all__ = [
     "RedactionPolicy",
     "Role",
     "SpanKind",
+    # Streaming
+    "StreamRecorder",
     "TokenUsage",
     # Version
     "__version__",
@@ -95,7 +98,9 @@ __all__ = [
     "is_configured",
     # Core API
     "observe",
+    "observe_astream",
     "observe_block",
+    "observe_stream",
     "register_dialect",
     "register_price",
     "register_prices",

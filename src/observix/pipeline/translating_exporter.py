@@ -55,14 +55,18 @@ _SUPPORTED_KWARGS = _readable_span_kwargs()
 
 
 def rebuild_span(
-    span: ReadableSpan, *, attributes: dict[str, Any], name: str | None = None
+    span: ReadableSpan,
+    *,
+    attributes: dict[str, Any],
+    name: str | None = None,
+    resource: Any = None,
 ) -> ReadableSpan:
-    """Clone ``span`` with replacement attributes and an optional new name."""
+    """Clone ``span`` with replacement attributes, name and resource."""
     candidate: dict[str, Any] = {
         "name": name or span.name,
         "context": span.get_span_context(),
         "parent": span.parent,
-        "resource": span.resource,
+        "resource": resource if resource is not None else span.resource,
         "attributes": attributes,
         "events": span.events,
         "links": span.links,
@@ -93,13 +97,18 @@ class DialectSpanExporter(SpanExporter):
         redaction: RedactionPolicy | None = None,
         destination: str = "unknown",
         adopt_foreign: bool = False,
+        resource_overrides: dict[str, Any] | None = None,
     ) -> None:
         self._exporter = exporter
         self._dialect = dialect
         self._redaction = redaction or ALLOW_ALL
         self._destination = destination
         self._adopt_foreign = adopt_foreign
+        self._resource_overrides = resource_overrides or {}
         self._translation_failures = 0
+        #: Resources are identical across a batch, so the merged result is
+        #: computed once and reused rather than rebuilt per span.
+        self._resource_cache: dict[int, Any] = {}
 
     @property
     def wrapped_exporter(self) -> SpanExporter:
@@ -131,7 +140,12 @@ class DialectSpanExporter(SpanExporter):
             redacted = self._redaction.apply(source)
             view = CanonicalView(redacted, name=span.name)
             result = self._dialect(view)
-            return rebuild_span(span, attributes=result.attributes, name=result.name)
+            return rebuild_span(
+                span,
+                attributes=result.attributes,
+                name=result.name,
+                resource=self._merged_resource(span),
+            )
         except Exception:
             if strict_mode():
                 raise
@@ -152,6 +166,23 @@ class DialectSpanExporter(SpanExporter):
                     exc_info=True,
                 )
             return span
+
+    def _merged_resource(self, span: ReadableSpan) -> Any:
+        """This destination's resource: the shared one plus its own overrides."""
+        if not self._resource_overrides:
+            return None  # rebuild_span keeps the original
+        source = span.resource
+        key = id(source)
+        cached = self._resource_cache.get(key)
+        if cached is None:
+            from opentelemetry.sdk.resources import Resource
+
+            # Resource.create() injects defaults (service.name=unknown_service,
+            # telemetry.sdk.*) which would then win the merge and clobber the
+            # real values. The plain constructor adds nothing.
+            cached = source.merge(Resource(dict(self._resource_overrides)))
+            self._resource_cache[key] = cached
+        return cached
 
     def shutdown(self) -> None:
         self._exporter.shutdown()

@@ -64,6 +64,29 @@ Cost in USD is computed automatically when the model is in the [price book](conf
 
 `record_llm_call` accepts OpenAI-style dicts, Anthropic content blocks, plain strings, or already-canonical `Message` objects — it normalises all of them.
 
+## 3b. Streaming responses
+
+When a model streams, the decorated function returns before anything is generated — so `@observe` alone would record an empty output and miss time-to-first-token entirely. Wrap the stream:
+
+```python
+from observix import observe, observe_stream
+
+
+@observe(kind="chat")
+def chat(prompt: str):
+    stream = client.messages.create(..., stream=True)
+    return observe_stream(
+        stream,
+        provider="anthropic",
+        request_model="claude-opus-4",
+        input_tokens=count,
+    )
+```
+
+Chunks pass through untouched. TTFT, the accumulated response and the chunk count land on the span when the stream ends — **including when it is abandoned part-way**. Use `observe_astream` for `async for` streams.
+
+Text extraction handles OpenAI deltas, Anthropic events and plain strings out of the box; pass `extract=lambda chunk: ...` for anything else.
+
 ## 4. Instrument a block
 
 ```python

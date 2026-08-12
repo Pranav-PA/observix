@@ -73,6 +73,20 @@ class Provider(abc.ABC):
         """Headers for this destination. Subclasses add auth, then call super."""
         return dict(config.headers)
 
+    def resource_overrides(self, config: ExporterConfig) -> dict[str, Any]:
+        """Resource attributes that apply to *this destination only*.
+
+        OpenTelemetry's resource is per-``TracerProvider`` and therefore shared
+        by every destination, but some backends route on a resource attribute
+        --- Phoenix selects its project from ``openinference.project.name``.
+        Overrides returned here are merged into the span's resource as it is
+        rebuilt for this destination, so one backend's routing cannot leak into
+        another's.
+
+        Returns an empty mapping by default.
+        """
+        return {}
+
     def require_endpoint(self, config: ExporterConfig) -> str:
         """Resolve the endpoint or fail with an actionable message."""
         endpoint = self.resolve_endpoint(config)

@@ -91,6 +91,21 @@ span.record_llm_call(
 
 Cost in USD is computed automatically from a built-in, overridable price book.
 
+### Stream without losing the metrics that matter
+
+When a model streams, the decorated function returns before anything is generated — so a plain decorator records an empty output and misses time-to-first-token entirely.
+
+```python
+from observix import observe, observe_stream
+
+@observe(kind="chat")
+def chat(prompt: str):
+    stream = client.messages.create(..., stream=True)
+    return observe_stream(stream, provider="anthropic", request_model="claude-opus-4")
+```
+
+Chunks pass through untouched. TTFT, the accumulated response and the chunk count land on the span when the stream ends — **including when it's abandoned part-way**. `observe_astream` for `async for`.
+
 ### Instrument a block
 
 ```python
@@ -187,6 +202,28 @@ def test_renders_in_phoenix():
         my_function()
     assert spans.one().attributes["openinference.span.kind"] == "LLM"
 ```
+
+**And verified against a real backend.** In-memory tests prove observix emits what it intended to; they cannot prove the backend *understands* it. [`tests/live/`](tests/live/) sends real spans to a running Phoenix and asserts on its typed columns, which only populate for attributes Phoenix actually recognises. That suite caught a real bug — project routing needs a resource attribute, not the header we had been sending.
+
+```bash
+phoenix serve                       # separate terminal
+pytest tests/live -m live
+```
+
+---
+
+## Overhead
+
+Measured, not asserted — full results and caveats in [benchmarks/](benchmarks/README.md).
+
+| | ns/call |
+|---|---:|
+| Undecorated baseline | ~200 |
+| `@observe`, unconfigured | ~585 |
+| Raw OpenTelemetry span | ~56,000 |
+| `@observe`, enabled | ~85,400 |
+
+Unconfigured observix costs well under a microsecond. When enabled, roughly two-thirds of a span's cost is the OpenTelemetry SDK underneath it. Fan-out adds ~22 µs per extra destination on the calling thread — translation and network I/O happen on each destination's own worker. When no destination retains content, prompt serialisation is skipped entirely, cutting ~32% off a full LLM span.
 
 ---
 

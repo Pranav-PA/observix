@@ -270,6 +270,68 @@ class TestDialectSpanExporter:
         assert inner.spans[0].attributes[C.KIND] == "chat"
 
 
+class TestPerDestinationResourceOverrides:
+    """Resource is per-TracerProvider and therefore shared; some backends route
+    on a resource attribute, so each destination can override its own."""
+
+    def test_overrides_are_merged_into_the_resource(self) -> None:
+        from observix.dialects import PassthroughDialect
+
+        inner = _CapturingExporter()
+        exporter = DialectSpanExporter(
+            inner,
+            PassthroughDialect(),
+            resource_overrides={"openinference.project.name": "proj"},
+        )
+        exporter.export([_fake_span()])
+
+        resource = inner.spans[0].resource
+        assert resource.attributes["openinference.project.name"] == "proj"
+
+    def test_the_shared_resource_survives_the_merge(self) -> None:
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import ReadableSpan
+        from opentelemetry.trace import SpanContext, TraceFlags
+
+        from observix.dialects import PassthroughDialect
+
+        span = ReadableSpan(
+            name="s",
+            context=SpanContext(1, 2, is_remote=False, trace_flags=TraceFlags(1)),
+            resource=Resource.create({"service.name": "mine"}),
+            attributes={},
+        )
+        inner = _CapturingExporter()
+        DialectSpanExporter(inner, PassthroughDialect(), resource_overrides={"a": "b"}).export(
+            [span]
+        )
+
+        attributes = inner.spans[0].resource.attributes
+        assert attributes["service.name"] == "mine"
+        assert attributes["a"] == "b"
+
+    def test_no_overrides_leaves_the_resource_identical(self) -> None:
+        from observix.dialects import PassthroughDialect
+
+        span = _fake_span()
+        inner = _CapturingExporter()
+        DialectSpanExporter(inner, PassthroughDialect()).export([span])
+        assert inner.spans[0].resource is span.resource
+
+    def test_destinations_do_not_see_each_others_overrides(self) -> None:
+        from observix.dialects import PassthroughDialect
+
+        span = _fake_span()
+        a, b = _CapturingExporter(), _CapturingExporter()
+        DialectSpanExporter(a, PassthroughDialect(), resource_overrides={"dest": "a"}).export(
+            [span]
+        )
+        DialectSpanExporter(b, PassthroughDialect()).export([span])
+
+        assert a.spans[0].resource.attributes["dest"] == "a"
+        assert "dest" not in b.spans[0].resource.attributes
+
+
 class TestRebuildSpan:
     def test_produces_a_real_readable_span(self) -> None:
         rebuilt = rebuild_span(_fake_span(name="orig", a=1), attributes={"b": 2})

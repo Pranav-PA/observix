@@ -119,10 +119,22 @@ class TestPhoenixProvider:
         config = ExporterConfig(provider="phoenix", options={"api_key": "k"})
         assert PhoenixProvider().build_headers(config)["authorization"] == "Bearer k"
 
-    def test_project_name_is_sent_as_a_header(self) -> None:
+    def test_project_routes_via_a_resource_attribute_not_a_header(self) -> None:
+        """Verified against Phoenix 20.x: a header is ignored and the spans
+        land in `default`. The project comes from the resource attribute."""
         config = ExporterConfig(provider="phoenix", options={"project_name": "proj"})
-        headers = PhoenixProvider().build_headers(config)
-        assert headers["x-phoenix-project-name"] == "proj"
+        provider = PhoenixProvider()
+
+        assert provider.resource_overrides(config) == {"openinference.project.name": "proj"}
+        assert "x-phoenix-project-name" not in provider.build_headers(config)
+
+    def test_no_project_means_no_resource_override(self) -> None:
+        assert PhoenixProvider().resource_overrides(ExporterConfig(provider="phoenix")) == {}
+
+    def test_project_can_come_from_the_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PHOENIX_PROJECT_NAME", "from-env")
+        overrides = PhoenixProvider().resource_overrides(ExporterConfig(provider="phoenix"))
+        assert overrides == {"openinference.project.name": "from-env"}
 
     def test_the_default_dialect_is_openinference(self) -> None:
         assert PhoenixProvider.default_dialect == "openinference"

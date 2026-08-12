@@ -82,6 +82,38 @@ jobs:
             echo "::endgroup::"
           done
 
+  live:
+    name: live backend verification
+    runs-on: ubuntu-latest
+    # Verifies that Phoenix actually accepts and understands what the
+    # OpenInference dialect emits. In-memory tests cannot catch a mapping the
+    # backend silently ignores --- exactly how the project-routing bug hid.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+
+      - name: Install observix and Phoenix
+        run: uv pip install --system -e ".[dev]" arize-phoenix
+
+      - name: Start Phoenix
+        run: |
+          nohup phoenix serve > phoenix.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -sf http://localhost:6006/healthz > /dev/null; then
+              echo "Phoenix is up"; exit 0
+            fi
+            sleep 5
+          done
+          echo "Phoenix failed to start"; tail -50 phoenix.log; exit 1
+
+      - name: Run live tests
+        run: pytest tests/live -m live -v
+
+      - name: Phoenix logs on failure
+        if: failure()
+        run: tail -100 phoenix.log
+
   build:
     runs-on: ubuntu-latest
     steps:

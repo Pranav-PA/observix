@@ -100,7 +100,11 @@ minversion = "7.0"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 filterwarnings = ["error::DeprecationWarning:observix.*"]
-addopts = "-ra --strict-markers"
+# Live tests need a real backend running; excluded from the default run.
+addopts = "-ra --strict-markers -m 'not live'"
+markers = [
+    "live: verifies against a real running backend (deselected by default)",
+]
 
 [tool.ruff]
 line-length = 100

@@ -120,6 +120,88 @@ def test_capture_can_be_disabled() -> None:
     assert C.OUTPUT not in attrs
 
 
+def test_var_positional_arguments_are_captured() -> None:
+    """*args functions take the slower full-binding path; verify it still works."""
+
+    @observe
+    def work(first: int, *rest: int, flag: bool = False) -> None: ...
+
+    with collect_spans() as spans:
+        work(1, 2, 3, flag=True)
+
+    captured = spans.one().attributes[C.INPUT]
+    assert '"first": 1' in captured
+    assert '"flag": true' in captured
+
+
+def test_keyword_only_arguments_are_captured() -> None:
+    @observe
+    def work(a: int, *, b: int) -> None: ...
+
+    with collect_spans() as spans:
+        work(1, b=2)
+
+    captured = spans.one().attributes[C.INPUT]
+    assert '"a": 1' in captured
+    assert '"b": 2' in captured
+
+
+def test_var_keyword_arguments_are_captured() -> None:
+    @observe
+    def work(a: int, **extra: int) -> None: ...
+
+    with collect_spans() as spans:
+        work(1, x=9)
+
+    captured = spans.one().attributes[C.INPUT]
+    assert '"a": 1' in captured
+    assert '"x": 9' in captured
+
+
+def test_defaults_not_passed_are_not_invented() -> None:
+    """Only what the caller actually supplied should be recorded."""
+
+    @observe
+    def work(a: int, b: int = 5) -> None: ...
+
+    with collect_spans() as spans:
+        work(1)
+
+    assert '"b"' not in spans.one().attributes[C.INPUT]
+
+
+def test_builtins_are_decoratable() -> None:
+    """Many builtins do expose a signature, so arguments are still named."""
+    wrapped = observe(len)
+
+    with collect_spans() as spans:
+        assert wrapped([1, 2, 3]) == 3
+
+    assert spans.one().attributes[C.INPUT] == '{"obj": [1, 2, 3]}'
+
+
+def test_an_uninspectable_callable_falls_back_to_positional_keys() -> None:
+    """Some C callables have no signature at all; capture must still work."""
+    from observix.api import _bind_arguments, _SpanOptions
+
+    options = _SpanOptions(
+        name="x",
+        kind=SpanKind.TASK,
+        capture_input=True,
+        capture_output=True,
+        excluded_args=frozenset({"self"}),
+        attributes=None,
+        metadata=None,
+        record_exceptions=True,
+        signature=None,
+    )
+    assert _bind_arguments(options, ("a", "b"), {"kw": 1}) == {
+        "arg0": "a",
+        "arg1": "b",
+        "kw": 1,
+    }
+
+
 def test_unserialisable_arguments_do_not_break_the_call() -> None:
     class Hostile:
         def __repr__(self) -> str:

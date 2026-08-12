@@ -360,6 +360,25 @@ class TestMLflowDialect:
         attrs = MLflowDialect()(llm_view).attributes
         assert isinstance(json.loads(attrs[MF.SPAN_INPUTS]), list)
 
+    def test_cost_uses_mlflows_native_attribute(self, llm_view: CanonicalView) -> None:
+        """MLflow populates mlflow.llm.cost itself, but only for models in its
+        own price table. Verified against MLflow 3.x: a model it cannot price
+        showed no cost at all until observix started emitting this."""
+        cost = json.loads(MLflowDialect()(llm_view).attributes[MF.LLM_COST])
+        assert cost == {
+            "input_cost": 0.018,
+            "output_cost": 0.0255,
+            "total_cost": 0.0435,
+        }
+
+    def test_canonical_cost_keys_do_not_leak(self, llm_view: CanonicalView) -> None:
+        attrs = MLflowDialect()(llm_view).attributes
+        assert not [k for k in attrs if k.startswith("observix.cost")]
+
+    def test_no_cost_attribute_when_cost_is_unknown(self) -> None:
+        view = CanonicalView({C.KIND: "chat", C.LLM_REQUEST_MODEL: "m"})
+        assert MF.LLM_COST not in MLflowDialect()(view).attributes
+
 
 # --- Registry ----------------------------------------------------------------
 

@@ -365,6 +365,32 @@ They assert against Phoenix's *typed columns* (`span_kind`, `attributes.llm.toke
 
 The `bind_partial` optimisation returned only ~16 %, which is itself a finding: it was not the dominant term. JSON serialisation is. Documented rather than pursued further, so the next person starts from evidence instead of a guess.
 
+### D32. Emit MLflow's native cost attribute instead of keeping cost canonical
+
+**Decision.** The MLflow dialect emits `mlflow.llm.cost` as `{input_cost, output_cost, total_cost}` rather than preserving `observix.cost.*`.
+
+**Why.** [D3](#d3-record-canonical-attributes-translate-at-export-time-not-at-span-creation) says dialects that lack a home for a value keep the canonical key so nothing is lost. The MLflow dialect did that for cost, on the stated belief that MLflow has no cost namespace. Live testing showed that belief was wrong.
+
+The bug was almost invisible: sending a `claude-opus-4` span produced `mlflow.llm.cost` in MLflow with exactly the numbers observix computed — because **MLflow had computed its own** from its internal price table, coincidentally matching. Only re-running with a model priced solely in our book (`ModelPrice(input=1000, output=2000)`) revealed the truth: no cost attribute at all, just `observix.cost.*` sitting inert.
+
+So for any fine-tune, private model, or custom price book — the exact cases where observix's cost computation matters most — cost was silently missing from MLflow's reporting.
+
+**The general lesson.** A live test that only checks well-known inputs can be fooled by the backend independently producing the right answer. Distinguishing "the backend understood us" from "the backend worked it out itself" needs an input the backend *cannot* know. The permanent test uses a private model for exactly that reason.
+
+**Cost.** One more upstream attribute to track. Cheap next to silently wrong cost data.
+
+### D33. Diff our constants against the upstream semconv packages in CI
+
+**Decision.** `tests/test_conformance.py` asserts every hardcoded OpenInference and `gen_ai.*` attribute name exists in the official `openinference-semantic-conventions` and `opentelemetry-semantic-conventions` packages, which are pinned as dev dependencies.
+
+**Why.** Our dialect tests assert against our own constants, so a typo or an upstream rename passes every one of them while producing traces that render but quietly lose data. The Phoenix and MLflow bugs were both this shape, caught only by talking to a real backend — and live tests need a running server, so they cannot guard every attribute on every commit.
+
+Diffing against the upstream packages is the cheap half of that coverage: pure constants, no server, runs in milliseconds on every push. If OpenInference renames `llm.token_count.prompt_details.cache_read`, CI fails here rather than in someone's trace view.
+
+**Result at introduction.** All 43 OpenInference attribute names, the flattened key construction, all span-kind values, and the `gen_ai.*` names matched exactly. The value is not the first run; it is every run after an upstream release.
+
+**Also covered.** Every canonical `SpanKind` must have a mapping in every dialect — an unmapped kind falls through to a default and degrades silently.
+
 ---
 
 ## 10. Environment decisions (this build)

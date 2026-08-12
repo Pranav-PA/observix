@@ -1,5 +1,11 @@
 # observix
 
+[![PyPI](https://img.shields.io/pypi/v/observix.svg)](https://pypi.org/project/observix/)
+[![Python](https://img.shields.io/pypi/pyversions/observix.svg)](https://pypi.org/project/observix/)
+[![CI](https://github.com/Pranav-PA/observix/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranav-PA/observix/actions/workflows/ci.yml)
+[![Licence](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
+[![Types](https://img.shields.io/badge/types-strict%20mypy-blue.svg)](https://mypy-lang.org/)
+
 **Provider-agnostic observability for Python and AI applications.** Instrument once. Send the same telemetry to Phoenix, Langfuse, MLflow, Datadog, Arize and any OTLP backend — simultaneously — and change destinations without touching application code.
 
 ```python
@@ -204,12 +210,20 @@ def test_renders_in_phoenix():
     assert spans.one().attributes["openinference.span.kind"] == "LLM"
 ```
 
-**And verified against a real backend.** In-memory tests prove observix emits what it intended to; they cannot prove the backend *understands* it. [`tests/live/`](tests/live/) sends real spans to a running Phoenix and asserts on its typed columns, which only populate for attributes Phoenix actually recognises. That suite caught a real bug — project routing needs a resource attribute, not the header we had been sending.
+**And verified against real backends.** In-memory tests prove observix emits what it intended to; they cannot prove the backend *understands* it. [`tests/live/`](tests/live/) sends real spans to running Phoenix and MLflow instances and asserts on the typed fields those backends only populate for attributes they actually recognise.
+
+That suite has found two real bugs so far:
+
+- **Phoenix** routes projects by a resource attribute, not the header we were sending — every span was landing in `default`.
+- **MLflow** has a native `mlflow.llm.cost` field we weren't emitting, so cost from a custom price book was invisible in its reporting.
 
 ```bash
-phoenix serve                       # separate terminal
+phoenix serve                                   # separate terminal
+mlflow server --host 127.0.0.1 --port 5000      # separate terminal
 pytest tests/live -m live
 ```
+
+[`tests/test_conformance.py`](tests/test_conformance.py) closes the other half of the gap: it diffs every hardcoded attribute name against the official `openinference-semantic-conventions` and `opentelemetry-semantic-conventions` packages, so an upstream rename fails CI instead of silently degrading traces.
 
 ---
 

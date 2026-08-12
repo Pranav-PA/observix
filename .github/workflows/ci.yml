@@ -96,9 +96,10 @@ jobs:
   live:
     name: live backend verification
     runs-on: ubuntu-latest
-    # Verifies that Phoenix actually accepts and understands what the
-    # OpenInference dialect emits. In-memory tests cannot catch a mapping the
-    # backend silently ignores --- exactly how the project-routing bug hid.
+    # Verifies that Phoenix and MLflow actually accept and understand what our
+    # dialects emit. In-memory tests cannot catch a mapping the backend
+    # silently ignores --- which is how both the Phoenix project-routing bug
+    # and the missing MLflow cost attribute hid.
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -107,8 +108,8 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
       - run: uv venv --python 3.12
 
-      - name: Install observix and Phoenix
-        run: uv pip install -e ".[dev]" arize-phoenix
+      - name: Install observix, Phoenix and MLflow
+        run: uv pip install -e ".[dev]" arize-phoenix mlflow
 
       - name: Start Phoenix
         run: |
@@ -121,12 +122,26 @@ jobs:
           done
           echo "Phoenix failed to start"; tail -50 phoenix.log; exit 1
 
+      - name: Start MLflow
+        run: |
+          nohup uv run --no-sync mlflow server --host 127.0.0.1 --port 5000 \
+            --backend-store-uri "sqlite:///$PWD/mlflow.db" > mlflow.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:5000/health > /dev/null; then
+              echo "MLflow is up"; exit 0
+            fi
+            sleep 5
+          done
+          echo "MLflow failed to start"; tail -50 mlflow.log; exit 1
+
       - name: Run live tests
         run: uv run --no-sync pytest tests/live -m live -v
 
-      - name: Phoenix logs on failure
+      - name: Backend logs on failure
         if: failure()
-        run: tail -100 phoenix.log
+        run: |
+          echo "::group::phoenix"; tail -100 phoenix.log; echo "::endgroup::"
+          echo "::group::mlflow";  tail -100 mlflow.log;  echo "::endgroup::"
 
   build:
     runs-on: ubuntu-latest

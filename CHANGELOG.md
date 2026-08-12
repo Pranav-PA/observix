@@ -10,6 +10,25 @@ canonical `observix.*` attribute namespace is stable from `1.0` onward.
 
 ## [Unreleased]
 
+### Fixed
+
+- **MLflow cost was invisible for models MLflow cannot price.** The `mlflow`
+  dialect kept cost in the canonical namespace, on the mistaken belief that
+  MLflow has no cost attribute. It has `mlflow.llm.cost`, which MLflow
+  populates itself — but only for models in its own price table. Cost computed
+  from a custom price book (fine-tunes, private models) therefore never
+  appeared in MLflow's reporting. Found by the new live MLflow suite.
+
+### Added
+
+- **Live MLflow verification** (`tests/live/test_mlflow_live.py`), alongside the
+  existing Phoenix suite. Both now run in CI.
+- **Upstream conformance tests** (`tests/test_conformance.py`) diffing every
+  hardcoded attribute name against the official
+  `openinference-semantic-conventions` and `opentelemetry-semantic-conventions`
+  packages, so an upstream rename fails CI instead of silently degrading
+  traces. Also asserts every canonical `SpanKind` has a mapping in every dialect.
+
 ## [0.1.0] — 2026-08-12
 
 First release. The core thesis is in place: instrument once, export natively to

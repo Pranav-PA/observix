@@ -55,6 +55,9 @@ dev = [
     "ruff>=0.4",
     "opentelemetry-exporter-otlp-proto-http>=1.24.0",
     "tomli>=2.0; python_version < '3.11'",
+    # Pure constants, used by tests/test_conformance.py to prove our hardcoded
+    # attribute names still match what Phoenix and Arize actually read.
+    "openinference-semantic-conventions>=0.1",
 ]
 
 [project.urls]

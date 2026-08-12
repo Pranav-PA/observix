@@ -76,10 +76,18 @@ class MLflowDialect(Dialect):
             if raw_out is not None:
                 result.set(MF.SPAN_OUTPUTS, _as_json(raw_out))
 
-        # MLflow has no cost namespace; keep canonical keys so data survives.
-        for key in (C.COST_INPUT_USD, C.COST_OUTPUT_USD, C.COST_TOTAL_USD):
-            if key in attrs:
-                result.set(key, attrs[key])
+        cost = view.cost
+        if not cost.is_empty():
+            cost_details: dict[str, float] = {}
+            if cost.input_usd is not None:
+                cost_details["input_cost"] = cost.input_usd
+            if cost.output_usd is not None:
+                cost_details["output_cost"] = cost.output_usd
+            cost_total = cost.resolved_total()
+            if cost_total is not None:
+                cost_details["total_cost"] = cost_total
+            if cost_details:
+                result.set(MF.LLM_COST, to_json(cost_details))
         for key, value in attrs.items():
             if key.startswith(C.METADATA_PREFIX):
                 result.set(key, value)

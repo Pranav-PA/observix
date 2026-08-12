@@ -76,6 +76,8 @@ Constructor options: `release`, `environment`.
 
 Targets MLflow tracing. `mlflow.spanInputs` / `spanOutputs` must parse as JSON, so plain strings are wrapped rather than passed through raw.
 
+Cost goes to MLflow's native `mlflow.llm.cost` object. MLflow populates that field itself, but only for models in its own price table — so emitting it explicitly is what makes cost visible for fine-tunes, private models, and anything priced from a [custom price book](configuration.md#cost). Verified against MLflow 3.x, where an unknown model produced no cost attribute at all.
+
 ---
 
 ## `passthrough`

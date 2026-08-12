@@ -10,37 +10,6 @@ canonical `observix.*` attribute namespace is stable from `1.0` onward.
 
 ## [Unreleased]
 
-### Added
-
-- **Streaming support.** `observe_stream` / `observe_astream` wrap a chunk
-  iterator, recording time-to-first-token, the accumulated response and the
-  chunk count. Finalises correctly when a stream is abandoned part-way.
-  `StreamRecorder` is exposed for manual control.
-- **Live backend tests** (`tests/live/`, marked `live`, deselected by default)
-  that send real spans to a running Phoenix and assert it recognises them.
-- **Per-destination resource overrides** via `Provider.resource_overrides()`,
-  for backends that route on a resource attribute.
-- **Benchmarks** (`benchmarks/`) measuring decorator overhead, the content-skip
-  optimisation, fan-out scaling and per-dialect translation cost, against a raw
-  OpenTelemetry baseline. Results and caveats in `benchmarks/README.md`.
-
-### Fixed
-
-- **Phoenix project routing.** Projects are selected by the
-  `openinference.project.name` *resource* attribute; the previously-sent
-  `x-phoenix-project-name` header is ignored by Phoenix, so every span landed in
-  `default`. Found by the new live tests.
-- Resource merging used `Resource.create()`, whose injected defaults
-  (`service.name=unknown_service`) overwrote real values.
-
-### Changed
-
-- `@observe` reuses the span facade from span start to span end instead of
-  allocating a second one.
-- Argument capture zips pre-resolved parameter names rather than calling
-  `inspect.Signature.bind_partial` per call (~16 % faster capture). Functions
-  with `*args` still use full binding.
-
 ## [0.1.0] — 2026-08-12
 
 First release. The core thesis is in place: instrument once, export natively to
@@ -51,6 +20,10 @@ many backends at the same time.
 **Developer API**
 - `@observe` decorator, bare or parameterised, for sync functions, coroutines,
   generators and async generators. Generator spans cover the whole iteration.
+- `observe_stream` / `observe_astream` for streaming model responses, recording
+  time-to-first-token, the accumulated response and the chunk count. Finalise
+  correctly when a stream errors or is abandoned part-way. `StreamRecorder` is
+  exposed for manual control.
 - `observe_block()` context manager, `start_span()` for manual lifetimes, and
   `get_current_span()` which always returns a usable span.
 - `ObservixSpan` facade with typed setters: `record_llm_call`, `set_usage`,
@@ -87,6 +60,9 @@ many backends at the same time.
 - A destination that fails to build is skipped rather than taking down the rest.
 - A dialect that fails to translate exports the span untranslated rather than
   dropping it.
+- Per-destination resource overrides via `Provider.resource_overrides()`, for
+  backends that route on a resource attribute (Phoenix selects its project from
+  `openinference.project.name`).
 
 **Privacy**
 - Per-destination `RedactionPolicy` with `all` / `none` / `hashed` / `truncated`
@@ -116,9 +92,15 @@ many backends at the same time.
 
 **Quality**
 - `py.typed`, strict mypy, `ParamSpec`-preserving decorators.
-- 270+ tests. Five runnable examples, all exercised in CI.
+- 318 tests, plus a live suite (`tests/live/`, marked `live`, deselected by
+  default) that sends real spans to a running Phoenix and asserts it recognises
+  them. Six runnable examples. All exercised in CI across Python 3.10–3.13 on
+  Linux, Windows and macOS.
 - `observix.testing` with `collect_spans` and `multi_collector`, capturing spans
   after redaction and translation.
+- `benchmarks/` measuring decorator overhead, the content-skip optimisation,
+  fan-out scaling and per-dialect translation cost, against a raw OpenTelemetry
+  baseline. Results and caveats in `benchmarks/README.md`.
 
 ### Notes
 

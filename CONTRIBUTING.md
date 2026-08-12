@@ -89,6 +89,10 @@ Changes are measured against these. They are not decorative — [docs/decisions.
 
 Include the observix version, Python version, your configuration (redacted), and what you expected versus what you saw. Output from `OBSERVIX_STRICT=1` with `logging.getLogger("observix").setLevel(logging.DEBUG)` is usually the fastest path to a diagnosis.
 
+## Releasing
+
+See [RELEASING.md](RELEASING.md).
+
 ## Licence
 
 Contributions are accepted under Apache-2.0.

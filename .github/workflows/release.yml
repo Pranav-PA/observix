@@ -4,15 +4,14 @@ name: Release
 #
 # Uses PyPI Trusted Publishing (OIDC) rather than a stored API token: PyPI
 # verifies the workflow's identity directly, so there is no long-lived secret
-# to leak or rotate. Configure it once at
-# https://pypi.org/manage/project/observix/settings/publishing/ with:
+# to leak or rotate. Configured at
+# https://pypi.org/manage/account/publishing/ as:
 #
-#   owner:            <your-github-org-or-user>
-#   repository:       observix
-#   workflow:         release.yml
-#   environment:      pypi
-#
-# Until that is configured, the publish step will fail — by design.
+#   project:      observix
+#   owner:        Pranav-PA
+#   repository:   observix
+#   workflow:     release.yml
+#   environment:  pypi
 
 on:
   push:
@@ -34,25 +33,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv python install 3.12
-      - run: uv pip install --system -e ".[dev]"
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+      - run: uv venv --python 3.12
+      - run: uv pip install -e ".[dev]"
 
       - name: Tests
-        run: pytest
+        run: uv run pytest
         env:
           OBSERVIX_STRICT: "1"
 
       - name: Lint and types
         run: |
-          ruff check .
-          ruff format --check .
-          mypy
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy
 
       - name: Tag matches package version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
-          PKG=$(python -c "import observix; print(observix.__version__)")
+          PKG=$(uv run python -c "import observix; print(observix.__version__)")
           if [ "$TAG" != "$PKG" ]; then
             echo "Tag v$TAG does not match __version__ $PKG"
             exit 1
@@ -65,20 +67,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv python install 3.12
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Build
         run: uv build
 
       - name: Check metadata
-        run: |
-          uv pip install --system twine
-          twine check --strict dist/*
+        run: uvx twine check --strict dist/*
 
       - name: Install the built wheel in a clean environment
         run: |
-          python -m venv /tmp/fresh
-          /tmp/fresh/bin/pip install --quiet dist/*.whl
+          uv venv --python 3.12 /tmp/fresh
+          VIRTUAL_ENV=/tmp/fresh uv pip install dist/*.whl
           /tmp/fresh/bin/python -c "
           import observix
           from observix.providers import available_providers

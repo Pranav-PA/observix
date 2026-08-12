@@ -84,6 +84,7 @@ _DIRECT: tuple[tuple[str, str], ...] = (
     (G.RESPONSE_FINISH_REASONS, C.LLM_RESPONSE_FINISH_REASONS),
     (G.USAGE_INPUT_TOKENS, C.USAGE_INPUT_TOKENS),
     (G.USAGE_OUTPUT_TOKENS, C.USAGE_OUTPUT_TOKENS),
+    (G.USAGE_TOTAL_TOKENS, C.USAGE_TOTAL_TOKENS),
     (G.USAGE_CACHE_READ_INPUT_TOKENS, C.USAGE_CACHE_READ_INPUT_TOKENS),
     (G.USAGE_CACHE_CREATION_INPUT_TOKENS, C.USAGE_CACHE_WRITE_INPUT_TOKENS),
     (G.CONVERSATION_ID, C.CONVERSATION_ID),
@@ -98,7 +99,12 @@ _DIRECT: tuple[tuple[str, str], ...] = (
     (G.TOOL_CALL_ARGUMENTS, C.TOOL_ARGUMENTS),
     (G.TOOL_CALL_RESULT, C.TOOL_RESULT),
     # OpenInference
+    # `llm.model_name` is what the provider *returned* (e.g. gpt-4o-2024-08-06).
+    # The requested model lives inside llm.invocation_parameters, unpacked
+    # separately below, and wins for the request slot because it runs first.
+    (OI.LLM_MODEL_NAME, C.LLM_RESPONSE_MODEL),
     (OI.LLM_MODEL_NAME, C.LLM_REQUEST_MODEL),
+    (OI.LLM_FINISH_REASON, C.LLM_RESPONSE_FINISH_REASONS),
     (OI.EMBEDDING_MODEL_NAME, C.LLM_REQUEST_MODEL),
     (OI.LLM_PROVIDER, C.LLM_PROVIDER),
     (OI.LLM_SYSTEM, C.LLM_PROVIDER),
@@ -200,6 +206,40 @@ def _unflatten_openinference_messages(
     ]
 
 
+#: Keys inside OpenInference's ``llm.invocation_parameters`` JSON blob, which is
+#: where every sampling parameter lives. Without unpacking it, adopting a
+#: Phoenix-instrumented span loses temperature, max_tokens and the rest --- and
+#: a Langfuse destination shows no model parameters at all.
+_INVOCATION_PARAMETERS: dict[str, str] = {
+    "model": C.LLM_REQUEST_MODEL,
+    "temperature": C.LLM_REQUEST_TEMPERATURE,
+    "top_p": C.LLM_REQUEST_TOP_P,
+    "top_k": C.LLM_REQUEST_TOP_K,
+    "max_tokens": C.LLM_REQUEST_MAX_TOKENS,
+    "max_completion_tokens": C.LLM_REQUEST_MAX_TOKENS,
+    "stop": C.LLM_REQUEST_STOP_SEQUENCES,
+    "frequency_penalty": C.LLM_REQUEST_FREQUENCY_PENALTY,
+    "presence_penalty": C.LLM_REQUEST_PRESENCE_PENALTY,
+    "seed": C.LLM_REQUEST_SEED,
+}
+
+
+def _unpack_invocation_parameters(attributes: dict[str, Any], out: dict[str, Any]) -> None:
+    """Lift OpenInference's invocation-parameters JSON into canonical keys."""
+    raw = attributes.get(OI.LLM_INVOCATION_PARAMETERS)
+    if not isinstance(raw, str):
+        return
+    params = from_json(raw)
+    if not isinstance(params, dict):
+        return
+    for source, canonical_key in _INVOCATION_PARAMETERS.items():
+        value = params.get(source)
+        if value is not None and canonical_key not in out:
+            if canonical_key == C.LLM_REQUEST_STOP_SEQUENCES and isinstance(value, str):
+                value = [value]
+            out[canonical_key] = value
+
+
 def normalize_foreign_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
     """Add canonical attributes derived from foreign ones.
 
@@ -215,6 +255,10 @@ def normalize_foreign_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
     kind = infer_kind(attributes)
     if kind is not None:
         out.setdefault(C.KIND, kind.value)
+
+    # Runs before the direct table so the *requested* model claims the request
+    # slot, leaving llm.model_name (the returned model) for the response slot.
+    _unpack_invocation_parameters(attributes, out)
 
     for foreign_key, canonical_key in _DIRECT:
         if foreign_key in attributes and canonical_key not in out:

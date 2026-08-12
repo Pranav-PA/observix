@@ -144,6 +144,16 @@ class TestOTelGenAIConformance:
             if n.isupper() and isinstance(getattr(gen_ai, n), str)
         }
 
+    #: Deliberate extensions: names real instrumentation libraries emit that the
+    #: specification does not define. Each needs a reason, so this list cannot
+    #: quietly become a dumping ground for typos.
+    DELIBERATE_EXTENSIONS = {
+        # Emitted by opentelemetry-instrumentation-openai (OpenLLMetry) and
+        # verified in tests/test_foreign_instrumentation.py. Worth adopting
+        # because providers occasionally report a total that is not the sum.
+        "gen_ai.usage.total_tokens",
+    }
+
     def test_attribute_names_exist_upstream(self) -> None:
         official = self._official()
         ours = {
@@ -153,10 +163,25 @@ class TestOTelGenAIConformance:
             and isinstance(getattr(G, name), str)
             and getattr(G, name).startswith("gen_ai.")
         }
-        drifted = {n: v for n, v in ours.items() if v not in official}
+        drifted = {
+            n: v
+            for n, v in ours.items()
+            if v not in official and v not in self.DELIBERATE_EXTENSIONS
+        }
         assert not drifted, (
             "These observix gen_ai constants are not defined by the installed "
-            f"opentelemetry-semantic-conventions: {drifted}"
+            "opentelemetry-semantic-conventions. Either they drifted, or they are "
+            "deliberate extensions and belong in DELIBERATE_EXTENSIONS with a "
+            f"reason: {drifted}"
+        )
+
+    def test_deliberate_extensions_are_still_necessary(self) -> None:
+        """If upstream adopts one of our extensions, stop calling it an extension."""
+        official = self._official()
+        adopted_upstream = self.DELIBERATE_EXTENSIONS & official
+        assert not adopted_upstream, (
+            "Upstream now defines these, so remove them from "
+            f"DELIBERATE_EXTENSIONS: {sorted(adopted_upstream)}"
         )
 
     def test_operation_names_exist_upstream(self) -> None:

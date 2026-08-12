@@ -58,6 +58,12 @@ dev = [
     # Pure constants, used by tests/test_conformance.py to prove our hardcoded
     # attribute names still match what Phoenix and Arize actually read.
     "openinference-semantic-conventions>=0.1",
+    # Real instrumentation libraries, driven against a local stub server by
+    # tests/test_foreign_instrumentation.py so adoption is verified against the
+    # spans these libraries actually emit rather than against their docs.
+    "openai>=1.0",
+    "openinference-instrumentation-openai>=0.1",
+    "opentelemetry-instrumentation-openai>=0.30",
 ]
 
 [project.urls]

@@ -62,6 +62,10 @@ LEGACY_COMPLETION: Final = "gen_ai.completion"
 
 USAGE_INPUT_TOKENS: Final = "gen_ai.usage.input_tokens"
 USAGE_OUTPUT_TOKENS: Final = "gen_ai.usage.output_tokens"
+
+USAGE_TOTAL_TOKENS: Final = "gen_ai.usage.total_tokens"
+"""Not in the current spec, but emitted by OpenLLMetry and worth adopting ---
+providers occasionally report a total that is not input + output."""
 USAGE_CACHE_READ_INPUT_TOKENS: Final = "gen_ai.usage.cache_read.input_tokens"
 USAGE_CACHE_CREATION_INPUT_TOKENS: Final = "gen_ai.usage.cache_creation.input_tokens"
 

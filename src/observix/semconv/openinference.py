@@ -41,6 +41,9 @@ LLM_SYSTEM: Final = "llm.system"
 LLM_INVOCATION_PARAMETERS: Final = "llm.invocation_parameters"
 LLM_PROMPTS: Final = "llm.prompts"
 
+LLM_FINISH_REASON: Final = "llm.finish_reason"
+"""Singular, unlike ``gen_ai.response.finish_reasons``."""
+
 LLM_TOKEN_COUNT_PROMPT: Final = "llm.token_count.prompt"
 LLM_TOKEN_COUNT_COMPLETION: Final = "llm.token_count.completion"
 LLM_TOKEN_COUNT_TOTAL: Final = "llm.token_count.total"

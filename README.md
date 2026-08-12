@@ -98,6 +98,7 @@ When a model streams, the decorated function returns before anything is generate
 ```python
 from observix import observe, observe_stream
 
+
 @observe(kind="chat")
 def chat(prompt: str):
     stream = client.messages.create(..., stream=True)

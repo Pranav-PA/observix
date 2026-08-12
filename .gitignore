@@ -38,3 +38,11 @@ htmlcov/
 # Local configuration that should never be committed
 observix.local.toml
 .env
+
+# Backend state written by the live tests
+.mlflow/
+mlflow.db
+mlruns/
+phoenix.log
+mlflow.log
+.phoenix/

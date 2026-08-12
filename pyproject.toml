@@ -1,0 +1,136 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "observix"
+dynamic = ["version"]
+description = "Provider-agnostic observability for Python and AI applications: instrument once, export everywhere."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+keywords = [
+    "observability", "opentelemetry", "tracing", "llm", "genai",
+    "telemetry", "otlp", "langfuse", "phoenix", "mlflow", "datadog",
+]
+authors = [{ name = "The observix authors" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+dependencies = [
+    "opentelemetry-api>=1.24.0",
+    "opentelemetry-sdk>=1.24.0",
+    "typing-extensions>=4.7.0",
+]
+
+[project.optional-dependencies]
+otlp = ["opentelemetry-exporter-otlp-proto-http>=1.24.0"]
+grpc = ["opentelemetry-exporter-otlp-proto-grpc>=1.24.0"]
+phoenix = ["opentelemetry-exporter-otlp-proto-http>=1.24.0"]
+langfuse = ["opentelemetry-exporter-otlp-proto-http>=1.24.0"]
+mlflow = ["opentelemetry-exporter-otlp-proto-http>=1.24.0"]
+arize = ["opentelemetry-exporter-otlp-proto-http>=1.24.0"]
+datadog = ["opentelemetry-exporter-otlp-proto-http>=1.24.0"]
+toml = ["tomli>=2.0; python_version < '3.11'"]
+all = [
+    "opentelemetry-exporter-otlp-proto-http>=1.24.0",
+    "tomli>=2.0; python_version < '3.11'",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.1",
+    "mypy>=1.8",
+    "ruff>=0.4",
+    "opentelemetry-exporter-otlp-proto-http>=1.24.0",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.urls]
+Homepage = "https://github.com/observix/observix"
+Documentation = "https://github.com/observix/observix/tree/main/docs"
+Source = "https://github.com/observix/observix"
+Issues = "https://github.com/observix/observix/issues"
+Changelog = "https://github.com/observix/observix/blob/main/CHANGELOG.md"
+
+# --- Plugin registries -------------------------------------------------------
+# Third-party packages extend observix by declaring these same entry points.
+
+[project.entry-points."observix.providers"]
+console = "observix.providers.console:ConsoleProvider"
+memory = "observix.providers.memory:MemoryProvider"
+otlp = "observix.providers.otlp:OTLPProvider"
+phoenix = "observix.providers.phoenix:PhoenixProvider"
+langfuse = "observix.providers.langfuse:LangfuseProvider"
+mlflow = "observix.providers.mlflow:MLflowProvider"
+arize = "observix.providers.arize:ArizeProvider"
+datadog = "observix.providers.datadog:DatadogProvider"
+
+[project.entry-points."observix.dialects"]
+passthrough = "observix.dialects.passthrough:PassthroughDialect"
+otel_genai = "observix.dialects.otel_genai:OTelGenAIDialect"
+openinference = "observix.dialects.openinference:OpenInferenceDialect"
+langfuse = "observix.dialects.langfuse:LangfuseDialect"
+mlflow = "observix.dialects.mlflow:MLflowDialect"
+
+[tool.hatch.version]
+path = "src/observix/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/observix"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/docs", "/examples", "/README.md", "/LICENSE", "/CHANGELOG.md"]
+
+# --- Tooling -----------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:observix.*"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "PIE", "PT"]
+# N812: `from ..semconv import canonical as C` is a deliberate, readable idiom
+#       for the attribute-constant modules, which are referenced constantly.
+ignore = ["B008", "RUF012", "N812"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "PT011", "PT018", "RUF043"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/observix"]
+strict = true
+warn_unreachable = true
+disallow_any_generics = false
+implicit_reexport = false
+
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/observix"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]

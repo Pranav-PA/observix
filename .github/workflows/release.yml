@@ -40,21 +40,21 @@ jobs:
       - run: uv pip install -e ".[dev]"
 
       - name: Tests
-        run: uv run pytest
+        run: uv run --no-sync pytest
         env:
           OBSERVIX_STRICT: "1"
 
       - name: Lint and types
         run: |
-          uv run ruff check .
-          uv run ruff format --check .
-          uv run mypy
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+          uv run --no-sync mypy
 
       - name: Tag matches package version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
-          PKG=$(uv run python -c "import observix; print(observix.__version__)")
+          PKG=$(uv run --no-sync python -c "import observix; print(observix.__version__)")
           if [ "$TAG" != "$PKG" ]; then
             echo "Tag v$TAG does not match __version__ $PKG"
             exit 1

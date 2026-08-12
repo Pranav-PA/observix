@@ -13,6 +13,11 @@ dist/
 venv/
 env/
 
+# uv writes this on `uv run`. Not committed: it is never consumed by the CI
+# workflows (which install with `uv pip install` and run with `--no-sync`), and
+# lockfiles are not published, so it would pin nothing for consumers.
+uv.lock
+
 # Tooling caches
 .pytest_cache/
 .mypy_cache/
